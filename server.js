@@ -3,7 +3,6 @@ const { chromium } = require("playwright");
 
 const app = express();
 
-// 🔥 QUAN TRỌNG NHẤT (mày đang thiếu cái này)
 app.use(express.json({ limit: "1mb" }));
 
 function buildHtml({ title, items, closing }) {
@@ -24,6 +23,8 @@ function buildHtml({ title, items, closing }) {
         }
         .formula {
           margin: 10px 0;
+          text-align: center;
+          font-size: 34px;
         }
       </style>
     </head>
@@ -49,10 +50,16 @@ function buildHtml({ title, items, closing }) {
 }
 
 app.post("/render", async (req, res) => {
+  console.log("BODY:", req.body);
+
   const { title, items, closing } = req.body || {};
 
   if (!title || !Array.isArray(items) || !closing) {
-    return res.status(400).json({ error: "Missing title/items/closing" });
+    return res.status(400).json({
+      error: "missing_fields",
+      message: "Missing title/items/closing",
+      body: req.body
+    });
   }
 
   let browser;
@@ -76,15 +83,12 @@ app.post("/render", async (req, res) => {
     const html = buildHtml({ title, items, closing });
 
     await page.setContent(html, { waitUntil: "load" });
-
-    // 🔥 CHỜ MathJax render
     await page.waitForTimeout(2000);
 
     const png = await page.screenshot({ type: "png", fullPage: true });
 
     res.setHeader("Content-Type", "image/png");
     return res.send(png);
-
   } catch (err) {
     console.error("RENDER_ERROR:", err);
     return res.status(500).json({
