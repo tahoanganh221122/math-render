@@ -1,3 +1,53 @@
+const express = require("express");
+const { chromium } = require("playwright");
+
+const app = express();
+
+// 🔥 QUAN TRỌNG NHẤT (mày đang thiếu cái này)
+app.use(express.json({ limit: "1mb" }));
+
+function buildHtml({ title, items, closing }) {
+  return `
+  <html>
+    <head>
+      <meta charset="UTF-8" />
+      <style>
+        body {
+          font-family: Arial;
+          padding: 40px;
+          font-size: 28px;
+        }
+        .title {
+          font-weight: bold;
+          font-size: 36px;
+          margin-bottom: 20px;
+        }
+        .formula {
+          margin: 10px 0;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="title">${title}</div>
+      ${items
+        .map((item) => {
+          if (item.type === "text") {
+            return `<div>${item.value}</div>`;
+          }
+          if (item.type === "formula") {
+            return `<div class="formula">\\(${item.value}\\)</div>`;
+          }
+          return "";
+        })
+        .join("")}
+      <div style="margin-top:20px;">${closing}</div>
+
+      <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    </body>
+  </html>
+  `;
+}
+
 app.post("/render", async (req, res) => {
   const { title, items, closing } = req.body || {};
 
@@ -24,14 +74,17 @@ app.post("/render", async (req, res) => {
     });
 
     const html = buildHtml({ title, items, closing });
-    await page.setContent(html, { waitUntil: "load" });
-    await page.waitForTimeout(1500);
 
-    const body = await page.locator("body");
-    const png = await body.screenshot({ type: "png" });
+    await page.setContent(html, { waitUntil: "load" });
+
+    // 🔥 CHỜ MathJax render
+    await page.waitForTimeout(2000);
+
+    const png = await page.screenshot({ type: "png", fullPage: true });
 
     res.setHeader("Content-Type", "image/png");
     return res.send(png);
+
   } catch (err) {
     console.error("RENDER_ERROR:", err);
     return res.status(500).json({
@@ -43,4 +96,13 @@ app.post("/render", async (req, res) => {
       await browser.close();
     }
   }
+});
+
+app.get("/", (req, res) => {
+  res.send("OK");
+});
+
+const PORT = process.env.PORT || 10000;
+app.listen(PORT, () => {
+  console.log("Server running on port", PORT);
 });
