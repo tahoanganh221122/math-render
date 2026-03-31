@@ -3,61 +3,15 @@ const { chromium } = require("playwright");
 
 const app = express();
 
-app.use(express.json({ limit: "1mb" }));
-
-function buildHtml({ title, items, closing }) {
-  return `
-  <html>
-    <head>
-      <meta charset="UTF-8" />
-      <style>
-        body {
-          font-family: Arial;
-          padding: 40px;
-          font-size: 28px;
-        }
-        .title {
-          font-weight: bold;
-          font-size: 36px;
-          margin-bottom: 20px;
-        }
-        .formula {
-          margin: 10px 0;
-          text-align: center;
-          font-size: 34px;
-        }
-      </style>
-    </head>
-    <body>
-      <div class="title">${title}</div>
-      ${items
-        .map((item) => {
-          if (item.type === "text") {
-            return `<div>${item.value}</div>`;
-          }
-          if (item.type === "formula") {
-            return `<div class="formula">\\(${item.value}\\)</div>`;
-          }
-          return "";
-        })
-        .join("")}
-      <div style="margin-top:20px;">${closing}</div>
-
-      <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
-    </body>
-  </html>
-  `;
-}
+app.use(express.json({ limit: "10mb" }));
 
 app.post("/render", async (req, res) => {
-  console.log("BODY:", req.body);
+  const { html } = req.body || {};
 
-  const { title, items, closing } = req.body || {};
-
-  if (!title || !Array.isArray(items) || !closing) {
+  if (!html) {
     return res.status(400).json({
-      error: "missing_fields",
-      message: "Missing title/items/closing",
+      error: "missing_html",
+      message: "Missing html",
       body: req.body
     });
   }
@@ -76,16 +30,18 @@ app.post("/render", async (req, res) => {
     });
 
     const page = await browser.newPage({
-      viewport: { width: 1200, height: 1600 },
+      viewport: { width: 1300, height: 2000 },
       deviceScaleFactor: 2
     });
 
-    const html = buildHtml({ title, items, closing });
-
     await page.setContent(html, { waitUntil: "load" });
-    await page.waitForTimeout(2000);
 
-    const png = await page.screenshot({ type: "png", fullPage: true });
+    await page.waitForTimeout(2500);
+
+    const png = await page.screenshot({
+      type: "png",
+      fullPage: true
+    });
 
     res.setHeader("Content-Type", "image/png");
     return res.send(png);
